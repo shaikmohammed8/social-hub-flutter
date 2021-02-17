@@ -1,22 +1,16 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:social_hub/models/post.dart' as post;
 import 'package:social_hub/models/user.dart';
 import 'package:social_hub/utils.dart';
 
 class FirestoreController extends GetxController {
-  TextEditingController captionController = TextEditingController();
-  TextEditingController locationController = TextEditingController();
-  var isUploading = false.obs;
-  final storage = FirebaseStorage.instance;
+  TextEditingController nameController = TextEditingController();
+  TextEditingController bioController = TextEditingController();
+  var isLiked = false.obs;
   final collection = FirebaseFirestore.instance.collection("users");
-  Rx<File> file = Rx<File>();
+
   Rx<UserModel> user = UserModel().obs;
 
   RxList<UserModel> searchUser = RxList();
@@ -93,51 +87,36 @@ class FirestoreController extends GetxController {
     }
   }
 
-  void createPost(String uid) async {
-    isUploading.value = true;
-    var map = post.toFirestore(
-        await uplodaPostPhoto(),
-        DateTime.now().toString(),
-        captionController.text,
-        locationController.text,
-        DateTime.now().toString(), {});
-    try {
-      var collection = FirebaseFirestore.instance
-          .collection("post")
-          .doc(uid)
-          .collection("userPosts")
-          .doc(DateTime.now().toString())
-          .set(map);
-      isUploading.value = false;
-      file.value = null;
-    } on Exception catch (e) {
-      isUploading.value = false;
-      displayDialoag(e, 'Error');
-    }
-  }
-
-  Future<String> uplodaPostPhoto() async {
-    try {
-      String filename = file.value.path;
-      var storageRefrence = storage.ref().child('posts/$filename');
-      var uploadtTast = storageRefrence.putFile(file.value);
-      var storageTaskSnapshot = await uploadtTast.whenComplete(() => null);
-      var url = await storageTaskSnapshot.ref.getDownloadURL();
-      return url;
-    } on Exception catch (e) {
-      displayDialoag(e, "Error");
-    }
-  }
-
   @override
   void onClose() {
-    locationController.clear();
-    captionController.clear();
+    bioController.clear();
+    nameController.clear();
     super.onClose();
   }
 
-  void setLoaction(String location, String cityname) {
-    print(location);
-    locationController.text = "$location, $cityname";
+  void updateUser(String uid) async {
+    Map<String, dynamic> map = {};
+    if (nameController.text.isNotEmpty) {
+      map.addAll({
+        "displayname": nameController.text,
+        'searchname': setSearchParam(nameController.text)
+      });
+    }
+    if (bioController.text.isNotEmpty) {
+      print("asdfasdfasdf" + bioController.text);
+      map.addAll({"bio": bioController.text});
+    }
+    try {
+      if (map.isNotEmpty) {
+        await collection.doc(uid).update(map);
+        Get.back();
+      } else
+        displayDialoag(
+            Exception("You Did not change anything"), "Can't update");
+    } on Exception catch (e) {
+      displayDialoag(e, "Error");
+    }
+    nameController.clear();
+    bioController.clear();
   }
 }

@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:social_hub/models/user.dart';
 
+import '../utils.dart';
+
 class Authentication extends GetxController {
   FirebaseAuth _auth = FirebaseAuth.instance;
   var pageIndex = 0.obs;
@@ -65,15 +67,5 @@ class Authentication extends GetxController {
     map.addAll({"searchname": setSearchParam(_auth.currentUser.displayName)});
 
     await FirestoreController().creatUser(_auth.currentUser.uid, map);
-  }
-
-  setSearchParam(String caseNumber) {
-    List<String> caseSearchList = [];
-    String temp = "";
-    for (int i = 0; i < caseNumber.length; i++) {
-      temp = temp + caseNumber[i];
-      caseSearchList.add(temp);
-    }
-    return caseSearchList;
   }
 }

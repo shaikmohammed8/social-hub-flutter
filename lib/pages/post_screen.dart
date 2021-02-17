@@ -4,11 +4,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
+import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/widgets/progress.dart';
 import 'package:geolocator/geolocator.dart';
 
+// ignore: must_be_immutable
 class PostScreen extends StatelessWidget {
   var controller = Get.find<FirestoreController>();
+  var postController = Get.find<PostFireStoreController>();
   @override
   Widget build(BuildContext context) {
     controller.gerUserById(FirebaseAuth.instance.currentUser.uid);
@@ -20,15 +23,15 @@ class PostScreen extends StatelessWidget {
         leading: IconButton(
           icon: Icon(CupertinoIcons.back),
           onPressed: () {
-            controller.file.value = null;
+            postController.file.value = null;
           },
         ),
         trailing: Obx(
           () => TextButton(
-            onPressed: controller.isUploading.value
+            onPressed: postController.isUploading.value
                 ? null
                 : () {
-                    controller
+                    postController
                         .createPost(FirebaseAuth.instance.currentUser.uid);
                   },
             child: Text(
@@ -42,12 +45,13 @@ class PostScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Obx(() =>
-                controller.isUploading.value ? linearProgress() : Container()),
+            Obx(() => postController.isUploading.value
+                ? linearProgress()
+                : Container()),
             AspectRatio(
               aspectRatio: 16 / 9,
               child: Image.file(
-                controller.file.value,
+                postController.file.value,
                 fit: BoxFit.cover,
               ),
             ),
@@ -64,8 +68,8 @@ class PostScreen extends StatelessWidget {
                       ),
               ),
               title: CupertinoTextField.borderless(
-                controller: controller.captionController,
-                placeholder: "Caption..       max(250)",
+                controller: postController.captionController,
+                placeholder: "Caption..",
                 maxLength: 250,
               ),
             ),
@@ -76,9 +80,9 @@ class PostScreen extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.location_city),
               title: CupertinoTextField.borderless(
-                controller: controller.locationController,
+                controller: postController.locationController,
                 maxLength: 40,
-                placeholder: "Where this photo is taken..       max(40)",
+                placeholder: "Where this photo is taken..",
               ),
             ),
             Divider(
@@ -109,6 +113,6 @@ class PostScreen extends StatelessWidget {
     var address =
         await Geocoder.local.findAddressesFromCoordinates(coordinated);
     var location = address.first;
-    controller.setLoaction(location.locality, location.countryName);
+    postController.setLoaction(location.locality, location.countryName);
   }
 }

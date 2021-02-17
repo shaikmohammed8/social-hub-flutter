@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:social_hub/logic/PostFirestoreContoller.dart';
+import 'package:social_hub/pages/edit_profile.dart';
 import 'package:social_hub/widgets/header.dart';
+import 'package:social_hub/widgets/post_tile.dart';
 
+// ignore: must_be_immutable
 class Profile extends StatelessWidget {
+  var postController = Get.find<PostFireStoreController>();
   var controller = Get.find<FirestoreController>();
   @override
   Widget build(BuildContext context) {
@@ -31,7 +36,7 @@ class Profile extends StatelessWidget {
                               backgroundColor: Colors.grey,
                             )
                           : CircleAvatar(
-                              backgroundImage: NetworkImage(
+                              backgroundImage: CachedNetworkImageProvider(
                                 controller.user.value.profileImage,
                               ),
                             ),
@@ -42,10 +47,12 @@ class Profile extends StatelessWidget {
                       "posts",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    Text(
-                      "0",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    Obx(
+                      () => Text(
+                        postController.userPosts.length.toString(),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
                     )
                   ],
                 ),
@@ -92,11 +99,15 @@ class Profile extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("""flutter developer
- app developer
- frelancer"""),
+                  Obx(
+                    () => Text(
+                      controller.user.value.bio,
+                      maxLines: 5,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                   TextButton(
-                    onPressed: null,
+                    onPressed: () => Get.to(() => EditProfile()),
                     child: Text(
                       "Edit Profile",
                       style: TextStyle(color: Get.theme.primaryColor),
@@ -105,10 +116,7 @@ class Profile extends StatelessWidget {
                 ],
               ),
             ),
-            Divider(
-              color: Colors.black,
-              thickness: 2,
-            )
+            PostTile()
           ],
         ),
       ),

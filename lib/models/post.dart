@@ -19,7 +19,7 @@ class Post {
         caption: document['caption'],
         loction: document['loction'],
         likes: document["likes"],
-        id: document['id']);
+        id: document.id);
   }
 }
 

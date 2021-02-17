@@ -1,18 +1,15 @@
 import 'dart:io';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:social_hub/logic/FirestoreCotroller.dart';
+import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/pages/post_screen.dart';
-import 'package:social_hub/widgets/progress.dart';
 
 // ignore: must_be_immutable
 class Upload extends StatelessWidget {
-  var controller = Get.find<FirestoreController>();
+  var controller = Get.find<PostFireStoreController>();
   @override
   Widget build(BuildContext context) {
     return Obx(

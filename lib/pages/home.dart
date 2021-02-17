@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/logic/authentication.dart';
 import 'package:social_hub/pages/activity_feed.dart';
 import 'package:social_hub/pages/profile.dart';
@@ -12,6 +13,8 @@ import 'package:social_hub/widgets/responsive.dart';
 
 // ignore: must_be_immutable
 class Home extends StatelessWidget {
+  var post =
+      Get.lazyPut<PostFireStoreController>(() => PostFireStoreController());
   var controller = Get.put(Authentication());
 
   @override
