@@ -16,9 +16,14 @@ class Authentication extends GetxController {
   GoogleSignIn googleSignIn = GoogleSignIn();
 
   void isUserAuthenticated() {
-    if (FirebaseAuth.instance.currentUser != null) {
-      isAuth.value = true;
-    }
+    _auth.authStateChanges().listen((event) {
+      if (event != null) {
+        isAuth.value = true;
+      }
+      if (event == null) {
+        isAuth.value = false;
+      }
+    });
   }
 
   void onPageChange(int index) {
@@ -37,8 +42,9 @@ class Authentication extends GetxController {
     super.onInit();
   }
 
-  void logout() {
-    FirebaseAuth.instance.signOut().then((value) => isAuth.value = false);
+  void logout() async {
+    await GoogleSignIn().disconnect();
+    _auth.signOut().then((value) => isAuth.value = false);
   }
 
   Future<void> signInWithGoogle() async {
@@ -59,6 +65,7 @@ class Authentication extends GetxController {
     await FirebaseAuth.instance.signInWithCredential(credential);
 
     Map<String, dynamic> map = toFirestore(
+        id: _auth.currentUser.uid,
         username: "",
         email: _auth.currentUser.email,
         displayname: _auth.currentUser.displayName,

@@ -1,31 +1,47 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:social_hub/logic/PostFirestoreContoller.dart';
-import 'package:social_hub/pages/edit_profile.dart';
 import 'package:social_hub/widgets/header.dart';
 import 'package:social_hub/widgets/post_tile.dart';
 
 // ignore: must_be_immutable
-class Profile extends StatelessWidget {
+class OtherUserProfile extends StatelessWidget {
+  final uid;
+  OtherUserProfile(this.uid);
   var postController = Get.find<PostFireStoreController>();
   var controller = Get.find<FirestoreController>();
   @override
   Widget build(BuildContext context) {
-    return buildScaffold();
+    return buildScaffold(uid);
   }
 
-  Scaffold buildScaffold() {
+  Scaffold buildScaffold(String uid) {
+    controller.isFollwed(FirebaseAuth.instance.currentUser.uid, uid);
+    controller.gerUserById(uid);
     return Scaffold(
       appBar: CupertinoNavigationBar(
+        padding: EdgeInsetsDirectional.only(
+          start: 0,
+        ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          onPressed: () => Get.back(),
+          icon: Icon(
+            CupertinoIcons.back,
+            color: Colors.black,
+          ),
+        ),
         border: Border(bottom: BorderSide(color: Colors.transparent)),
         backgroundColor: Colors.white,
       ),
       body: Container(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,24 +54,24 @@ class Profile extends StatelessWidget {
                       BoxShadow(
                           color: Colors.grey,
                           blurRadius: 5,
-                          offset: Offset(2, 4)),
+                          offset: Offset(2, 4))
                     ], shape: BoxShape.circle, color: Colors.blue),
                     height: 80,
                     child: Obx(
-                      () => controller.currentUser.value.profileImage == null
+                      () => controller.user.value.profileImage == null
                           ? CircleAvatar(
                               backgroundColor: Colors.grey,
                             )
                           : CircleAvatar(
                               backgroundImage: NetworkImage(
-                                controller.currentUser.value.profileImage,
+                                controller.user.value.profileImage,
                               ),
                             ),
                     )),
                 SizedBox(width: 10),
                 Obx(
                   () => Text(
-                    controller.currentUser.value.displayname,
+                    controller.user.value.displayname,
                     style: TextStyle(
                         color: Colors.blueGrey[700],
                         fontWeight: FontWeight.w900,
@@ -71,16 +87,20 @@ class Profile extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                        elevation: 15,
-                        shadowColor: Get.theme.primaryColor,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30))),
-                    onPressed: () => Get.to(() => EditProfile()),
-                    child: Text(
-                      "Edit Profile",
-                    ),
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: controller.isFollwed(
+                        FirebaseAuth.instance.currentUser.uid, uid),
+                    builder: (BuildContext context,
+                        AsyncSnapshot<DocumentSnapshot> snapshot) {
+                      if (!snapshot.hasData) {
+                        return Container();
+                      } else if (snapshot.data.exists) {
+                        return followButton(
+                            uid, "Following", Colors.white, Colors.red);
+                      } else
+                        return followButton(uid, "follow",
+                            Get.theme.primaryColor, Colors.white);
+                    },
                   ),
                   Column(
                     children: [
@@ -88,13 +108,17 @@ class Profile extends StatelessWidget {
                         "posts",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Obx(
-                        () => Text(
-                          postController.currentUserPosts.length.toString(),
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18),
-                        ),
-                      )
+                      StreamBuilder<List<QueryDocumentSnapshot>>(
+                          stream: postController.getUserPost(uid),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return postCountText("0");
+                            } else if (snapshot.data == null) {
+                              return postCountText("0");
+                            } else
+                              return postCountText(
+                                  snapshot.data.length.toString());
+                          }),
                     ],
                   ),
                   Column(
@@ -104,16 +128,15 @@ class Profile extends StatelessWidget {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       StreamBuilder<QuerySnapshot>(
-                        stream: controller
-                            .getFollwers(controller.currentUser.value.id),
+                        stream: controller.getFollwers(uid),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
-                            return followingAndFollowerText('--');
+                            return followerText('--');
                           } else
-                            return followingAndFollowerText(
+                            return followerText(
                                 snapshot.data.docs.length.toString());
                         },
-                      ),
+                      )
                     ],
                   ),
                   Column(
@@ -123,13 +146,12 @@ class Profile extends StatelessWidget {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       StreamBuilder<QuerySnapshot>(
-                        stream: controller
-                            .getFollowing(controller.currentUser.value.id),
+                        stream: controller.getFollowing(uid),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
-                            return followingAndFollowerText('--');
+                            return followerText('--');
                           } else
-                            return followingAndFollowerText(
+                            return followerText(
                                 snapshot.data.docs.length.toString());
                         },
                       ),
@@ -158,17 +180,44 @@ class Profile extends StatelessWidget {
                     ]),
               ),
             ),
-            PostTile(controller.currentUser.value.id)
+            PostTile(uid)
           ],
         ),
       ),
     );
   }
 
-  Text followingAndFollowerText(text) {
+  Text postCountText(text) {
     return Text(
       text,
       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    );
+  }
+
+  Text followerText(String text) {
+    return Text(
+      text,
+      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    );
+  }
+
+  ElevatedButton followButton(
+      String uid, String text, Color color, Color textColor) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+          minimumSize: Size(90, 35),
+          primary: color,
+          shadowColor: Get.theme.primaryColor,
+          elevation: 15,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+      onPressed: () {
+        controller.handleFollowing(FirebaseAuth.instance.currentUser.uid, uid);
+      },
+      child: Text(
+        text,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

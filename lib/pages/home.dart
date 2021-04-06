@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/logic/authentication.dart';
@@ -27,6 +28,10 @@ class Home extends StatelessWidget {
   }
 
   Widget buildAuthScreen(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+    ));
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(

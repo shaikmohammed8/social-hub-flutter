@@ -1,22 +1,25 @@
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:social_hub/models/post.dart' as post;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/pages/comments.dart';
-import 'package:social_hub/widgets/progress.dart';
 
+// ignore: must_be_immutable
 class Post extends StatelessWidget {
   var userController = Get.find<FirestoreController>();
   var controller = Get.find<PostFireStoreController>();
-  String args = Get.arguments;
+  Map<String, dynamic> args = Get.arguments;
 
   @override
   Widget build(BuildContext context) {
-    controller.getPostById(FirebaseAuth.instance.currentUser.uid, args);
-    controller.chekLiked(FirebaseAuth.instance.currentUser.uid, args);
+    print('ififif' + args['id']);
+    print('ififif' + args['uid']);
+    userController.gerUserById(args['uid']);
+    controller.getPostById(args['uid'], args['id']);
+    controller.chekLiked(args['id']);
+    controller.likeCount(args['id']);
     return Scaffold(
       appBar: AppBar(
         elevation: 0.0,
@@ -35,16 +38,19 @@ class Post extends StatelessWidget {
       ),
       body: Column(
         children: [
-          Obx(
-            () => controller.post.value.photoUrl == null
-                ? circularProgress()
-                : Column(children: [
+          FutureBuilder<post.Post>(
+              future: controller.getPostById(args['uid'], args['id']),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container();
+                } else
+                  return Column(children: [
                     ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: CachedNetworkImageProvider(
+                        backgroundImage: NetworkImage(
                             userController.user.value.profileImage),
                       ),
-                      subtitle: Text(controller.post.value.loction),
+                      subtitle: Text(snapshot.data.loction),
                       title: Text(
                         userController.user.value.displayname,
                         style: TextStyle(
@@ -52,7 +58,7 @@ class Post extends StatelessWidget {
                       ),
                       trailing: IconButton(
                           icon: Icon(
-                            Icons.filter_list,
+                            Icons.short_text,
                             color: Colors.black,
                           ),
                           onPressed: () {}),
@@ -67,34 +73,41 @@ class Post extends StatelessWidget {
                                 blurRadius: 10,
                                 offset: Offset(5, 8))
                           ]),
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: AspectRatio(
                         aspectRatio: 2 / 2,
                         child: GestureDetector(
                           onDoubleTap: () {
                             controller.handleLike(
-                                FirebaseAuth.instance.currentUser.uid, args);
+                                args['uid'],
+                                args['id'],
+                                userController.user.value.displayname,
+                                userController.user.value.profileImage);
                           },
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(30),
                             child: Image(
-                              image:
-                                  NetworkImage(controller.post.value.photoUrl),
-                              fit: BoxFit.fill,
+                              image: NetworkImage(snapshot.data.photoUrl),
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
                       ),
                     ),
                     Row(children: [
-                      IconButton(
-                        icon: controller.isLiked.value
-                            ? Icon(Icons.favorite)
-                            : Icon(Icons.favorite_outline),
-                        onPressed: () {
-                          controller.handleLike(
-                              FirebaseAuth.instance.currentUser.uid, args);
-                        },
+                      Obx(
+                        () => IconButton(
+                          icon: controller.isLiked.value
+                              ? Icon(Icons.favorite)
+                              : Icon(Icons.favorite_outline),
+                          onPressed: () {
+                            controller.handleLike(
+                                args['uid'],
+                                args['id'],
+                                userController.user.value.displayname,
+                                userController.user.value.profileImage);
+                          },
+                        ),
                       ),
                       IconButton(
                         icon: Icon(Icons.add_comment_outlined),
@@ -105,26 +118,28 @@ class Post extends StatelessWidget {
                       Spacer(),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 30.0),
-                        child: RichText(
-                            text: TextSpan(
-                                style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold),
-                                children: [
-                              TextSpan(
-                                text: "likes",
-                              ),
-                              TextSpan(
-                                text: controller.post.value.likes.length
-                                    .toString(),
-                              ),
-                            ])),
+                        child: Obx(
+                          () => RichText(
+                              text: TextSpan(
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold),
+                                  children: [
+                                TextSpan(
+                                  text: "likes",
+                                ),
+                                TextSpan(
+                                  text: controller.likesCount.value.toString(),
+                                ),
+                              ])),
+                        ),
                       )
                     ])
-                  ]),
-          )
+                  ]);
+              }),
         ],
       ),
     );
   }
+
 }

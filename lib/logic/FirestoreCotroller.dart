@@ -10,7 +10,7 @@ class FirestoreController extends GetxController {
   TextEditingController bioController = TextEditingController();
   var isLiked = false.obs;
   final collection = FirebaseFirestore.instance.collection("users");
-
+  Rx<UserModel> currentUser = UserModel().obs;
   Rx<UserModel> user = UserModel().obs;
 
   RxList<UserModel> searchUser = RxList();
@@ -20,6 +20,7 @@ class FirestoreController extends GetxController {
   @override
   void onInit() {
     getAllUsers();
+    gerCurrentUser();
     gerUserById(FirebaseAuth.instance.currentUser.uid);
     super.onInit();
   }
@@ -74,12 +75,26 @@ class FirestoreController extends GetxController {
     }
   }
 
-  void gerUserById(String uid) {
+  gerUserById(String uid) {
     try {
       var snapshot = collection.doc(uid).snapshots();
       snapshot.listen((event) {
         if (event != null) {
           user.value = UserModel.fromFirestore(event);
+        }
+      });
+    } on Exception catch (e) {
+      displayDialoag(e, "Error");
+    }
+  }
+
+  gerCurrentUser() {
+    try {
+      var snapshot =
+          collection.doc(FirebaseAuth.instance.currentUser.uid).snapshots();
+      snapshot.listen((event) {
+        if (event != null) {
+          currentUser.value = UserModel.fromFirestore(event);
         }
       });
     } on Exception catch (e) {
@@ -118,5 +133,100 @@ class FirestoreController extends GetxController {
     }
     nameController.clear();
     bioController.clear();
+  }
+
+  handleFollowing(String currentUid, String otherUid) async {
+    try {
+      var follow = await FirebaseFirestore.instance
+          .collection("following")
+          .doc(currentUid)
+          .collection("userFollweing")
+          .doc(otherUid)
+          .get();
+
+      if (follow.exists) {
+        follow.reference.delete();
+        await FirebaseFirestore.instance
+            .collection("followers")
+            .doc(otherUid)
+            .collection("userFollowers")
+            .doc(currentUid)
+            .delete()
+            .whenComplete(() => null);
+        removeFollowFeedNotification(otherUid, currentUid);
+      } else {
+        follow.reference.set({});
+        await FirebaseFirestore.instance
+            .collection("followers")
+            .doc(otherUid)
+            .collection("userFollowers")
+            .doc(currentUid)
+            .set({});
+        addFollowFeedNotification(otherUid, currentUid);
+      }
+    } on Exception catch (e) {
+      displayDialoag(e, "Error");
+    }
+  }
+
+  Stream<DocumentSnapshot> isFollwed(String currentUid, String otherUid) {
+    return FirebaseFirestore.instance
+        .collection("following")
+        .doc(currentUid)
+        .collection("userFollweing")
+        .doc(otherUid)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getFollwers(String uid) {
+    return FirebaseFirestore.instance
+        .collection("followers")
+        .doc(uid)
+        .collection("userFollowers")
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getFollowing(String uid) {
+    return FirebaseFirestore.instance
+        .collection("following")
+        .doc(uid)
+        .collection("userFollweing")
+        .snapshots();
+  }
+
+  void addFollowFeedNotification(String id, String uid) async {
+    if (FirebaseAuth.instance.currentUser.uid != id) {
+      await FirebaseFirestore.instance
+          .collection("feed")
+          .doc(id)
+          .collection("feedItems")
+          .doc(uid)
+          .set({
+        'username': currentUser.value.displayname,
+        'avtart': currentUser.value.profileImage,
+        'postphoto': "",
+        'postid': "",
+        'comment': '',
+        'userid': FirebaseAuth.instance.currentUser.uid,
+        'date': DateTime.now().toString(),
+        'type': "Started Following you"
+      });
+    }
+  }
+
+  void removeFollowFeedNotification(String id, String uid) {
+    if (FirebaseAuth.instance.currentUser.uid != id) {
+      FirebaseFirestore.instance
+          .collection("feed")
+          .doc(id)
+          .collection("feedItems")
+          .doc(uid)
+          .get()
+          .then((value) {
+        if (value.exists) {
+          value.reference.delete();
+        }
+      });
+    }
   }
 }

@@ -4,6 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 
+import 'otheruserprofile.dart';
+
 class Search extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -65,6 +67,10 @@ class UserResult extends StatelessWidget {
                     child: Column(
                       children: [
                         ListTile(
+                          onTap: () => Get.to(
+                            () => OtherUserProfile(
+                                controller.searchUser[index].id),
+                          ),
                           horizontalTitleGap: 30,
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 8),

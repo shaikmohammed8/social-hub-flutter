@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:social_hub/models/post.dart';
 
 import '../utils.dart';
@@ -11,12 +13,17 @@ import '../utils.dart';
 class PostFireStoreController extends GetxController {
   TextEditingController captionController = TextEditingController();
   TextEditingController locationController = TextEditingController();
+  var user = Get.find<FirestoreController>();
+  var nullPost = false.obs;
   var isLiked = false.obs;
+  var likesCount = 0.obs;
+  RxList<QueryDocumentSnapshot> feeds = RxList();
   Rx<Post> post = Post().obs;
   var isUploading = false.obs;
   final storage = FirebaseStorage.instance;
   final collection = FirebaseFirestore.instance.collection("post");
   RxList<Post> userPosts = RxList();
+  RxList<Post> currentUserPosts = RxList();
 
   Rx<File> file = Rx<File>();
 
@@ -27,7 +34,8 @@ class PostFireStoreController extends GetxController {
         DateTime.now().toString(),
         captionController.text,
         locationController.text,
-        DateTime.now().toString(), {});
+        DateTime.now().toString(),
+        uid, {});
     try {
       await collection
           .doc(uid)
@@ -71,11 +79,12 @@ class PostFireStoreController extends GetxController {
     super.onClose();
   }
 
-  getUserPost(String uid) {
+  currentUserPost(String uid) {
     try {
       var posts = collection
           .doc(uid)
           .collection("userPosts")
+          .orderBy("date", descending: true)
           .snapshots()
           .map((event) => event.docs);
 
@@ -85,7 +94,7 @@ class PostFireStoreController extends GetxController {
           event.forEach((element) {
             list.add(Post.fromFirestore(element));
           });
-          userPosts.assignAll(list);
+          currentUserPosts.assignAll(list);
         }
       });
     } on Exception catch (e) {
@@ -93,40 +102,165 @@ class PostFireStoreController extends GetxController {
     }
   }
 
-  getPostById(String uid, String date) async {
-    print("asdfsdf" + date);
+  // getUserPost(String uid) {
+  //   try {
+  //     var posts = collection
+  //         .doc(uid)
+  //         .collection("userPosts")
+  //         .orderBy("date", descending: true)
+  //         .snapshots()
+  //         .map((event) => event.docs);
+
+  //     posts.listen((event) {
+  //       if (!event.isBlank) {
+  //         List<Post> list = [];
+  //         event.forEach((element) {
+  //           list.add(Post.fromFirestore(element));
+  //         });
+  //         userPosts.assignAll(list);
+  //       } else {
+  //         nullPost.value = true;
+  //       }
+  //     });
+  //   } on Exception catch (e) {
+  //     displayDialoag(e, "Error");
+  //   }
+  // }
+
+  Stream<List<QueryDocumentSnapshot>> getUserPost(String uid) {
     try {
-      var post =
-          await collection.doc(uid).collection("userPosts").doc(date).get();
-      print(post.id);
-      this.post.value = Post.fromFirestore(post);
+      var posts = collection
+          .doc(uid)
+          .collection("userPosts")
+          .orderBy("date", descending: true)
+          .snapshots()
+          .map((event) => event.docs);
+
+      return posts;
     } on Exception catch (e) {
       displayDialoag(e, "Error");
+      return null;
     }
   }
 
-  handleLike(String uid, String postId) async {
-    if (isLiked == null || isLiked == false) {
-      await collection.doc(uid).collection("userPosts").doc(postId).update({
-        "likes": {uid: true}
-      });
-      isLiked.value = true;
-    } else {
-      await collection.doc(uid).collection("userPosts").doc(postId).update({
-        "likes": {uid: false}
-      });
-      isLiked.value = false;
+  Future<Post> getPostById(String uid, String date) async {
+    print("asdfsdf" + date);
+    DocumentSnapshot post;
+    try {
+      post = await collection.doc(uid).collection("userPosts").doc(date).get();
+      if (post.exists) {
+        this.post.value = Post.fromFirestore(post);
+        return Post.fromFirestore(post);
+      } else
+        nullPost.value = true;
+      return Post.fromFirestore(post);
+    } on Exception catch (e) {
+      displayDialoag(e, "Error");
+      return null;
     }
   }
 
-  chekLiked(String uid, String postId) {
-    var get =
-        collection.doc(uid).collection("userPosts").doc(postId).snapshots();
-    get.listen((event) {
-      if (event["likes"][uid] != null) {
-        isLiked.value = event["likes"][uid];
+  handleLike(String uid, String postId, String name, String avtar) async {
+    await FirebaseFirestore.instance
+        .collection("likes")
+        .doc(postId)
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser.uid)
+        .get()
+        .then((DocumentSnapshot value) {
+      if (!value.exists) {
+        value.reference.set({'name': name, 'avtar': avtar, 'userid': uid});
+        addLikeFeedNotification(postId, post.value.photoUrl, uid);
+      } else {
+        value.reference.delete();
+        removeLikeFeedNotification(postId, uid);
       }
-      ;
+    });
+  }
+
+  chekLiked(String postId) {
+    var get = FirebaseFirestore.instance
+        .collection("likes")
+        .doc(postId)
+        .collection("users")
+        .doc(FirebaseAuth.instance.currentUser.uid)
+        .snapshots();
+    get.listen((event) {
+      if (event.exists) {
+        isLiked.value = true;
+      } else
+        isLiked.value = false;
+    });
+  }
+
+  likeCount(String postId) {
+    var likes = FirebaseFirestore.instance
+        .collection('likes')
+        .doc(postId)
+        .collection('users')
+        .snapshots()
+        .map((event) => event.docs);
+    likes.listen((event) {
+      likesCount.value = event.length;
+    });
+  }
+
+  void addLikeFeedNotification(String postId, String postUrl, String id) async {
+    if (FirebaseAuth.instance.currentUser.uid != post.value.userid) {
+      print("add like");
+      await FirebaseFirestore.instance
+          .collection("feed")
+          .doc(id)
+          .collection("feedItems")
+          .doc(postId)
+          .set({
+        'username': user.currentUser.value.displayname,
+        'avtart': user.currentUser.value.profileImage,
+        'postphoto': postUrl,
+        'postid': postId,
+        'comment': '',
+        'userid': FirebaseAuth.instance.currentUser.uid,
+        'date': DateTime.now().toString(),
+        'type': "like"
+      });
+    }
+  }
+
+  void removeLikeFeedNotification(String postId, String id) {
+    if (FirebaseAuth.instance.currentUser.uid != post.value.userid) {
+      print("remove like");
+      FirebaseFirestore.instance
+          .collection("feed")
+          .doc(id)
+          .collection("feedItems")
+          .doc(postId)
+          .get()
+          .then((value) {
+        if (value.exists) {
+          value.reference.delete();
+        }
+      });
+    }
+  }
+
+  void getFeedNotification() {
+    print("""asdfasdfasd""" + 'element.exists.toString()');
+    var snapshot = FirebaseFirestore.instance
+        .collection("feed")
+        .doc(user.currentUser.value.id)
+        .collection("feedItems")
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((event) => event.docs);
+    print("""asdfasdfasd""" + snapshot.length.toString());
+    snapshot.listen((event) {
+      print("""asdfasdfasd""" + event.length.toString());
+      List<QueryDocumentSnapshot> list = [];
+      event.forEach((element) {
+        list.add(element);
+        print("""asdfasdfasd""" + event.length.toString());
+      });
+      feeds.assignAll(list);
     });
   }
 }

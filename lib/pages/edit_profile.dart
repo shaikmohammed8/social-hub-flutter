@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import "package:flutter/material.dart";
 import 'package:get/get.dart';
 import 'package:social_hub/logic/FirestoreCotroller.dart';
 
+// ignore: must_be_immutable
 class EditProfile extends StatelessWidget {
   var controller = Get.find<FirestoreController>();
   final formKey = GlobalKey<FormState>();
@@ -35,8 +35,8 @@ class EditProfile extends StatelessWidget {
               child: Obx(() => controller.user.value.profileImage == null
                   ? CircleAvatar(backgroundColor: Colors.grey)
                   : CircleAvatar(
-                      backgroundImage: CachedNetworkImageProvider(
-                          controller.user.value.profileImage),
+                      backgroundImage:
+                          NetworkImage(controller.user.value.profileImage),
                     )),
             ),
             SizedBox(

@@ -1,5 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -7,14 +5,18 @@ import 'package:social_hub/logic/FirestoreCotroller.dart';
 import 'package:social_hub/logic/PostFirestoreContoller.dart';
 import 'package:social_hub/logic/commentController.dart';
 
+// ignore: must_be_immutable
 class Comments extends StatelessWidget {
   CommentController controller = Get.put(CommentController());
   var postController = Get.find<PostFireStoreController>();
-  var args = Get.arguments;
+  var user = Get.find<FirestoreController>();
+  Map<String, dynamic> args = Get.arguments;
 
   @override
   Widget build(BuildContext context) {
-    controller.getComments(args);
+    user.gerCurrentUser();
+    controller.getComments(args['id']);
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0.0,
@@ -29,13 +31,16 @@ class Comments extends StatelessWidget {
             width: double.infinity,
             height: (Get.mediaQuery.size.height -
                     AppBar().preferredSize.height -
-                    Get.mediaQuery.padding.top) *
+                    Get.mediaQuery.padding.top -
+                    Get.mediaQuery.viewInsets.bottom) *
                 0.9,
             child: Obx(
               () => ListView.builder(
                   itemCount: controller.comments.length,
                   itemBuilder: (BuildContext context, int index) {
                     return Comment(
+                        userPhoto: controller.comments[index]['avtar'],
+                        username: controller.comments[index]['username'],
                         comment: controller.comments[index]['comment'],
                         userid: controller.comments[index]['userid']);
                   }),
@@ -44,9 +49,11 @@ class Comments extends StatelessWidget {
           Container(
             height: (Get.mediaQuery.size.height -
                     AppBar().preferredSize.height -
-                    Get.mediaQuery.padding.top) *
+                    Get.mediaQuery.padding.top -
+                    Get.mediaQuery.viewInsets.bottom) *
                 0.1,
             child: CupertinoTextField(
+              maxLength: 100,
               controller: controller.postComment,
               padding: const EdgeInsets.all(8),
               prefix: IconButton(
@@ -58,7 +65,12 @@ class Comments extends StatelessWidget {
                 icon: Icon(Icons.send),
                 onPressed: () {
                   controller.addComment(
-                      args, FirebaseAuth.instance.currentUser.uid);
+                      args['id'],
+                      user.currentUser.value.id,
+                      args['uid'],
+                      user.currentUser.value.displayname,
+                      postController.post.value.photoUrl,
+                      user.currentUser.value.profileImage);
                 },
               ),
               placeholder: "Enter a Comment",
@@ -70,25 +82,24 @@ class Comments extends StatelessWidget {
   }
 }
 
+// ignore: must_be_immutable
 class Comment extends StatelessWidget {
   final String comment;
-  final userid;
+  final userPhoto;
+  final username, userid;
   var userController = Get.find<FirestoreController>();
 
-  Comment({this.comment, this.userid});
+  Comment({this.comment, this.userid, this.username, this.userPhoto});
 
   @override
   Widget build(BuildContext context) {
-    userController.gerUserById(userid);
-    return Obx(
-      () => ListTile(
-        leading: CircleAvatar(
-            backgroundImage: CachedNetworkImageProvider(
-                userController.user.value.profileImage)),
-        title: Text(userController.user.value.displayname),
-        subtitle: Text(comment),
-        trailing: IconButton(icon: Icon(Icons.short_text), onPressed: () {}),
-      ),
+    print("asdfasdfasdfsadfsadf" + userPhoto);
+
+    return ListTile(
+      leading: CircleAvatar(backgroundImage: NetworkImage(userPhoto)),
+      title: Text(username),
+      subtitle: Text(comment),
+      trailing: IconButton(icon: Icon(Icons.short_text), onPressed: () {}),
     );
   }
 }
